@@ -16,6 +16,13 @@ function _ism.init {
         return 1;
     fi
     complete -F _ism.complete ism
+    
+    # Create data dir and file if they dont exist
+    if [ ! -d "${ISM_DATA_DIR}" ]; then
+        mkdir -p "${ISM_DATA_DIR}"
+        _ism.create-data-file "${ISM_DATA_FILE}"
+    fi
+
     preexec_functions+=(_ism.preexec)
     precmd_functions+=(_ism.postexec)
     _ism.yesterdays-summary
@@ -63,7 +70,7 @@ function _ism.save {
     local STATE=""
 
     if [ ! -f "${DATA_FILE}" ]; then
-        echo "[]" > "${DATA_FILE}"
+        _ism.create-data-file "${DATA_FILE}"
     fi
 
     if [ "${ISM_LAST_EXIT_CODE}" == "0" ]; then
@@ -83,6 +90,14 @@ function _ism.save {
         mv "${TMP_FILE}" "${DATA_FILE}"
     else
         return 1
+    fi
+}
+
+function _ism.create-data-file {
+    local FILE_NAME=$1
+
+    if [ ! -f "${FILE_NAME}" ]; then
+        echo "[]" > "${FILE_NAME}"
     fi
 }
 
