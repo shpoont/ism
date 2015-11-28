@@ -15,7 +15,6 @@ function _ism.init {
     if [ "$?" -ne "0" ]; then
         return 1;
     fi
-    complete -F _ism.complete ism
     
     # Create data dir and file if they dont exist
     if [ ! -d "${ISM_DATA_DIR}" ]; then
@@ -25,6 +24,9 @@ function _ism.init {
 
     preexec_functions+=(_ism.preexec)
     precmd_functions+=(_ism.postexec)
+  
+    complete -F _ism.complete ism
+    
     _ism.yesterdays-summary
     _ism.cleanup
 }
