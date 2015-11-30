@@ -1,10 +1,11 @@
 #!/bin/bash
 
-ISM_DATA_DIR=~/.ism
+ISM_DATA_DIR=${ISM_DATA_DIR:-${HOME}/.ism}
 ISM_DATA_FILE="${ISM_DATA_DIR}/data.json"
-ISM_DATA_TTL=30
-ISM_ALERT_COUNT=5
-ISM_SHOW_YESTERDAYS_SUMMARY="yes"
+ISM_DATA_DAILY_DIR="${ISM_DATA_DIR}/daily"
+ISM_DATA_TTL=${ISM_DATA_TTL:-30}
+ISM_ALERT_FAILURES_COUNT=${ISM_ALERT_FAILURES_COUNT:-10}
+ISM_SHOW_DAILY_SUMMARY=${ISM_SHOW_DAILY_SUMMARY:-no}
 
 ISM_LAST_COMMAND=""
 ISM_LAST_COMMAND_JSON=""
@@ -27,7 +28,7 @@ function _ism.init {
   
     complete -F _ism.complete ism
     
-    _ism.yesterdays-summary
+    _ism.daily-summary
     _ism.cleanup
 }
 
@@ -166,15 +167,17 @@ function _ism.complete {
 
 function _ism.check-alerts {
     if [ "${ISM_LAST_EXIT_CODE}" != "0" ]; then
-        local COMMAND_FAILURES=$(jq --raw-output ".[] | select(.command==""${ISM_LAST_COMMAND_JSON}"") | if .failure == null then 0 else .failure end" "${ISM_DATA_FILE}")
-        if [ $COMMAND_FAILURES -gt 0 -a $((COMMAND_FAILURES % ISM_ALERT_COUNT)) -eq 0 ]; then
-            echo "-----------"
-            echo "ism notice: This command is failing too often:"
-            echo ""
-            echo "     ${ISM_LAST_COMMAND}"
-            echo ""
-            echo "ism suggestion: try to fix this"
-            echo "-----------"
+        if [ "${ISM_ALERT_FAILURES_COUNT}" != "0" ]; then
+            local COMMAND_FAILURES=$(jq --raw-output ".[] | select(.command==""${ISM_LAST_COMMAND_JSON}"") | if .failure == null then 0 else .failure end" "${ISM_DATA_FILE}")
+            if [ $COMMAND_FAILURES -gt 0 -a $((COMMAND_FAILURES % ISM_ALERT_FAILURES_COUNT)) -eq 0 ]; then
+                echo "-----------"
+                echo "ism notice: This command is failing too often:"
+                echo ""
+                echo "     ${ISM_LAST_COMMAND}"
+                echo ""
+                echo "ism suggestion: try to fix this"
+                echo "-----------"
+            fi
         fi
     fi
     # TODO: Optionally alert with terminal-notifier in OS X
@@ -190,8 +193,8 @@ function _ism.cleanup {
     # TODO: remove daily stats
 }
 
-function _ism.yesterdays-summary {
-    if [ "${ISM_SHOW_YESTERDAYS_SUMMARY}" = "" -o "${ISM_SHOW_YESTERDAYS_SUMMARY}" = "no" ]; then
+function _ism.daily-summary {
+    if [ "${ISM_SHOW_DAILY_SUMMARY}" = "" -o "${ISM_SHOW_DAILY_SUMMARY}" = "no" ]; then
         return
     fi
     local YESTERDAYS_DATE=$(date -v-1d +%F)
