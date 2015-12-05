@@ -45,7 +45,7 @@ function _ism.check-requirements {
 }
 
 function _ism.preexec {
-    ISM_LAST_COMMAND="$1"
+    ISM_LAST_COMMAND=$(echo "${1}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//') # trim
     ISM_LAST_COMMAND_JSON=$(echo -n "${ISM_LAST_COMMAND}" | python -c "import sys,json; print json.dumps(sys.stdin.read())")
 }
 
