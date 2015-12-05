@@ -159,13 +159,11 @@ function _ism.check-alerts {
         if [ "${ISM_ALERT_FAILURES_COUNT}" != "0" ]; then
             local COMMAND_FAILURES=$(jq --raw-output ".[] | select(.command==""${ISM_LAST_COMMAND_JSON}"") | if .failure == null then 0 else .failure end" "${ISM_DATA_FILE}")
             if [ $COMMAND_FAILURES -gt 0 -a $((COMMAND_FAILURES % ISM_ALERT_FAILURES_COUNT)) -eq 0 ]; then
-                echo "-----------"
-                echo "ism notice: This command is failing too often:"
                 echo ""
-                echo "     ${ISM_LAST_COMMAND}"
+                echo "ism notice: the following command is failing too often, is it possible to fix it?"
                 echo ""
-                echo "ism suggestion: try to fix this"
-                echo "-----------"
+                echo "  ${ISM_LAST_COMMAND}"
+                echo ""
             fi
         fi
     fi
