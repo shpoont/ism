@@ -1,10 +1,10 @@
 #!/bin/bash
 
-ISM_DATA_DIR=~/.ism
+ISM_DATA_DIR=${ISM_DATA_DIR:-${HOME}/.ism}
 ISM_DATA_FILE="${ISM_DATA_DIR}/data.json"
-ISM_DATA_TTL=30
-ISM_ALERT_COUNT=5
-ISM_SHOW_YESTERDAYS_SUMMARY="yes"
+ISM_DATA_TTL=${ISM_DATA_TTL:-30}
+ISM_ALERT_FAILURES_COUNT=${ISM_ALERT_FAILURES_COUNT:-10}
+ISM_STATS_LIMIT=${ISM_STATS_LIMIT:-20}
 
 ISM_LAST_COMMAND=""
 ISM_LAST_COMMAND_JSON=""
@@ -16,18 +16,16 @@ function _ism.init {
         return 1;
     fi
     
-    # Create data dir and file if they dont exist
+    # Create data dir if it doesnt exist
     if [ ! -d "${ISM_DATA_DIR}" ]; then
         mkdir -p "${ISM_DATA_DIR}"
-        _ism.create-data-file "${ISM_DATA_FILE}"
     fi
-
+    
     preexec_functions+=(_ism.preexec)
     precmd_functions+=(_ism.postexec)
   
     complete -F _ism.complete ism
     
-    _ism.yesterdays-summary
     _ism.cleanup
 }
 
@@ -47,7 +45,7 @@ function _ism.check-requirements {
 }
 
 function _ism.preexec {
-    ISM_LAST_COMMAND="$1"
+    ISM_LAST_COMMAND=$(echo "${1}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//') # trim
     ISM_LAST_COMMAND_JSON=$(echo -n "${ISM_LAST_COMMAND}" | python -c "import sys,json; print json.dumps(sys.stdin.read())")
 }
 
@@ -60,7 +58,6 @@ function _ism.postexec {
     local DATE_TODAY=$(date +%F)
 
     _ism.save "${EXEC_TIME}" "${ISM_DATA_FILE}"
-    _ism.save "${EXEC_TIME}" "${ISM_DATA_DIR}/${DATE_TODAY}.json"
     _ism.check-alerts "${ISM_LAST_EXIT_CODE}"
     jobs > /dev/null
     return ${ISM_LAST_EXIT_CODE}
@@ -108,73 +105,87 @@ function ism {
         "--help")
             _ism.usage
             ;;
-        "--failure")
-            ism --stats --sort-failure | head -n 2 | tail -n 1 | cut -f 4
-            ;;
-        "--success")
-            ism --stats --sort-success | head -n 2 | tail -n 1 | cut -f 4
-            ;;
         "--stats")
-            case "$2" in
-                "--sort-failure" | "*")
-                    local STATS_SORT="failure"
-                    local STATS_ORDER=" | reverse "
-                    ;;
-                "--sort-success")
-                    local STATS_SORT="success"
-                    local STATS_ORDER="| reverse "
-                    ;;
-                "--sort-date")
-                    local STATS_SORT="date"
-                    local STATS_ORDER=" | reverse "
-                    ;;
-                "--sort-command")
-                    local STATS_SORT="command"
-                    local STATS_ORDER=""
-                    ;;
-            esac
-            echo -e "Failure\tSuccess\tLast execution\t\tCommand"
-            jq --raw-output "sort_by(.${STATS_SORT}) ${STATS_ORDER}| .[] | \"\(if .failure == null then 0 else .failure end)\t\(if .success == null then 0 else .success end)\t\(.date)\t\(.command)\"" "${ISM_DATA_FILE}"
+            _ism.stats $2
             ;;
-        "*")
+        *)
             _ism.usage
             ;;
     esac
 }
 
 function _ism.usage {
-    echo "ism Get alerts about your most unsuccessful bash commands and improve the way you work."
+    echo ""
+    echo "Interactive Shell Monitor"
+    echo ""
+    echo "Parameters:"
     echo "  --help - this help"
-    echo "  --failure - print the most unsuccessful command"
-    echo "  --success - print the most successful command"
-    echo "  --stats - print stats for successful and unsuccessful commands"
-    echo "      [--sort-failure] - sort by unsuccessful command"
-    echo "      [--sort-success] - sort by successful command"
+    echo "  --stats - print command execution stats (prints top ${ISM_STATS_LIMIT} results)."
+    echo "      [--sort-failure] - sort by unsuccessful executions"
+    echo "      [--sort-success] - sort by successful executions"
+    echo "      [--sort-usage] - sort by command usage"
     echo "      [--sort-date] - sort by last execution date"
     echo "      [--sort-command] - sort by command name"
+    echo ""
+    echo "Submit issues and feature requests at https://github.com/shpoont/ism/issues"
+    echo ""
+}
+
+function _ism.stats {
+    local SORT=${1:---sort-usage}
+    case "${SORT}" in
+        "--sort-usage")
+            local STATS_SORT="  | sort_by(.usage)"
+            local STATS_ORDER=" | reverse "
+            local STATS_LIMIT=" | limit(${ISM_STATS_LIMIT}; .[])"
+            ;;
+        "--sort-success")
+            local STATS_SORT="  | sort_by(.success)"
+            local STATS_ORDER=" | reverse "
+            local STATS_LIMIT=" | limit(${ISM_STATS_LIMIT}; .[])"
+            ;;
+        "--sort-failure")
+            local STATS_SORT="  | sort_by(.failure)"
+            local STATS_ORDER=" | reverse "
+            local STATS_LIMIT=" | limit(${ISM_STATS_LIMIT}; .[])"
+            ;;
+        "--sort-date")
+            local STATS_SORT="  | sort_by(.date)"
+            local STATS_ORDER=" | reverse"
+            local STATS_LIMIT=" | limit(${ISM_STATS_LIMIT}; .[])"
+            ;;
+        "--sort-command")
+            local STATS_SORT="  | sort_by(.command)"
+            local STATS_ORDER=""
+            local STATS_LIMIT=" | .[]"
+            ;;
+    esac
+
+    echo -e "Success\tFailure\tLast execution\t\tCommand"
+    jq --raw-output "map(.usage = .success + .failure ) ${STATS_SORT} ${STATS_ORDER} ${STATS_LIMIT} | \"\(if .success == null then 0 else .success end)\t\(if .failure == null then 0 else .failure end)\t\(.date)\t\(.command)\"" "${ISM_DATA_FILE}"
 }
 
 function _ism.complete {
     local CURR_ARG="${COMP_WORDS[COMP_CWORD]}"
     local PREV_ARG="${COMP_WORDS[COMP_CWORD-1]}"
     if [ "${COMP_CWORD}" = "1" ]; then
-        COMPREPLY=( $(compgen -W '--help --failure --success --stats' -- "${CURR_ARG}") )
+        COMPREPLY=( $(compgen -W '--help --stats' -- "${CURR_ARG}") )
     elif [ "${COMP_CWORD}" = "2" -a "${PREV_ARG}" = "--stats" ]; then
-        COMPREPLY=( $(compgen -W '--sort-failure --sort-success --sort-date --sort-command' -- "${CURR_ARG}") )
+        COMPREPLY=( $(compgen -W '--sort-failure --sort-success --sort-usage --sort-date --sort-command' -- "${CURR_ARG}") )
     fi
 }
 
 function _ism.check-alerts {
     if [ "${ISM_LAST_EXIT_CODE}" != "0" ]; then
-        local COMMAND_FAILURES=$(jq --raw-output ".[] | select(.command==""${ISM_LAST_COMMAND_JSON}"") | if .failure == null then 0 else .failure end" "${ISM_DATA_FILE}")
-        if [ $COMMAND_FAILURES -gt 0 -a $((COMMAND_FAILURES % ISM_ALERT_COUNT)) -eq 0 ]; then
-            echo "-----------"
-            echo "ism notice: This command is failing too often:"
-            echo ""
-            echo "     ${ISM_LAST_COMMAND}"
-            echo ""
-            echo "ism suggestion: try to fix this"
-            echo "-----------"
+        if [ "${ISM_ALERT_FAILURES_COUNT}" != "0" ]; then
+            local COMMAND_FAILURES=$(jq --raw-output ".[] | select(.command==""${ISM_LAST_COMMAND_JSON}"") | if .failure == null then 0 else .failure end" "${ISM_DATA_FILE}")
+            if [ $COMMAND_FAILURES -gt 0 -a $((COMMAND_FAILURES % ISM_ALERT_FAILURES_COUNT)) -eq 0 ]; then
+                echo ""
+                echo "ism notice: the following command is failing too often, is it possible to fix it?"
+                echo ""
+                echo "  ${ISM_LAST_COMMAND}"
+                echo ""
+            fi
         fi
     fi
     # TODO: Optionally alert with terminal-notifier in OS X
@@ -187,29 +198,6 @@ function _ism.cleanup {
     if [ -s "${TMP_FILE}" ]; then
         mv "${TMP_FILE}" "${ISM_DATA_FILE}"
     fi
-    # TODO: remove daily stats
-}
-
-function _ism.yesterdays-summary {
-    if [ "${ISM_SHOW_YESTERDAYS_SUMMARY}" = "" -o "${ISM_SHOW_YESTERDAYS_SUMMARY}" = "no" ]; then
-        return
-    fi
-    local YESTERDAYS_DATE=$(date -v-1d +%F)
-    local YESTERDAYS_DATA_FILE="${ISM_DATA_DIR}/${YESTERDAYS_DATE}.json"
-    if [ ! -f "${YESTERDAYS_DATA_FILE}" ]; then
-        return 1
-    fi
-    local YESTERDAYS_DATA=$(jq "map(select(.date > \"${YESTERDAYS_DATE}\"))" "${YESTERDAYS_DATA_FILE}")
-    local MOST_SUCCESSFUL=$(echo "${YESTERDAYS_DATA}" | jq --raw-output "sort_by(.success) | reverse | limit(1;.[]) | \"(\(.success) calls):   \(.command)\"")
-    local MOST_UNSUCCESSFUL=$(echo "${YESTERDAYS_DATA}" | jq --raw-output "sort_by(.failure) | reverse | limit(1;.[]) | \"(\(.failure)) calls: \(.command)\"")
-    echo "-----------"
-    echo "ism notice: Yesterday's summary"
-    echo ""
-    echo "     Most successful command ${MOST_SUCCESSFUL}"
-    echo "     Most unsuccessful command ${MOST_UNSUCCESSFUL}"
-    echo ""
-    echo "Keep up the good work!"
-    echo "-----------"
 }
 
 _ism.init
