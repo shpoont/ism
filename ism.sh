@@ -106,12 +106,6 @@ function ism {
         "--help")
             _ism.usage
             ;;
-        "--failure")
-            ism --stats --sort-failure | head -n 2 | tail -n 1 | cut -f 4
-            ;;
-        "--success")
-            ism --stats --sort-success | head -n 2 | tail -n 1 | cut -f 4
-            ;;
         "--stats")
             case "$2" in
                 "--sort-failure" | "*")
@@ -143,8 +137,6 @@ function ism {
 function _ism.usage {
     echo "ism Get alerts about your most unsuccessful bash commands and improve the way you work."
     echo "  --help - this help"
-    echo "  --failure - print the most unsuccessful command"
-    echo "  --success - print the most successful command"
     echo "  --stats - print stats for successful and unsuccessful commands"
     echo "      [--sort-failure] - sort by unsuccessful command"
     echo "      [--sort-success] - sort by successful command"
@@ -156,7 +148,7 @@ function _ism.complete {
     local CURR_ARG="${COMP_WORDS[COMP_CWORD]}"
     local PREV_ARG="${COMP_WORDS[COMP_CWORD-1]}"
     if [ "${COMP_CWORD}" = "1" ]; then
-        COMPREPLY=( $(compgen -W '--help --failure --success --stats' -- "${CURR_ARG}") )
+        COMPREPLY=( $(compgen -W '--help --stats' -- "${CURR_ARG}") )
     elif [ "${COMP_CWORD}" = "2" -a "${PREV_ARG}" = "--stats" ]; then
         COMPREPLY=( $(compgen -W '--sort-failure --sort-success --sort-date --sort-command' -- "${CURR_ARG}") )
     fi
