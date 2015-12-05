@@ -4,6 +4,7 @@ ISM_DATA_DIR=${ISM_DATA_DIR:-${HOME}/.ism}
 ISM_DATA_FILE="${ISM_DATA_DIR}/data.json"
 ISM_DATA_TTL=${ISM_DATA_TTL:-30}
 ISM_ALERT_FAILURES_COUNT=${ISM_ALERT_FAILURES_COUNT:-10}
+ISM_STATS_LIMIT=${ISM_STATS_LIMIT:-20}
 
 ISM_LAST_COMMAND=""
 ISM_LAST_COMMAND_JSON=""
@@ -15,12 +16,11 @@ function _ism.init {
         return 1;
     fi
     
-    # Create data dir and file if they dont exist
+    # Create data dir if it doesnt exist
     if [ ! -d "${ISM_DATA_DIR}" ]; then
         mkdir -p "${ISM_DATA_DIR}"
-        _ism.create-data-file "${ISM_DATA_FILE}"
     fi
-
+    
     preexec_functions+=(_ism.preexec)
     precmd_functions+=(_ism.postexec)
   
@@ -58,7 +58,6 @@ function _ism.postexec {
     local DATE_TODAY=$(date +%F)
 
     _ism.save "${EXEC_TIME}" "${ISM_DATA_FILE}"
-    _ism.save "${EXEC_TIME}" "${ISM_DATA_DIR}/${DATE_TODAY}.json"
     _ism.check-alerts "${ISM_LAST_EXIT_CODE}"
     jobs > /dev/null
     return ${ISM_LAST_EXIT_CODE}
@@ -107,41 +106,63 @@ function ism {
             _ism.usage
             ;;
         "--stats")
-            case "$2" in
-                "--sort-failure" | "*")
-                    local STATS_SORT="failure"
-                    local STATS_ORDER=" | reverse "
-                    ;;
-                "--sort-success")
-                    local STATS_SORT="success"
-                    local STATS_ORDER="| reverse "
-                    ;;
-                "--sort-date")
-                    local STATS_SORT="date"
-                    local STATS_ORDER=" | reverse "
-                    ;;
-                "--sort-command")
-                    local STATS_SORT="command"
-                    local STATS_ORDER=""
-                    ;;
-            esac
-            echo -e "Failure\tSuccess\tLast execution\t\tCommand"
-            jq --raw-output "sort_by(.${STATS_SORT}) ${STATS_ORDER}| .[] | \"\(if .failure == null then 0 else .failure end)\t\(if .success == null then 0 else .success end)\t\(.date)\t\(.command)\"" "${ISM_DATA_FILE}"
+            _ism.stats $2
             ;;
-        "*")
+        *)
             _ism.usage
             ;;
     esac
 }
 
 function _ism.usage {
-    echo "ism Get alerts about your most unsuccessful bash commands and improve the way you work."
+    echo ""
+    echo "Interactive Shell Monitor"
+    echo ""
+    echo "Parameters:"
     echo "  --help - this help"
-    echo "  --stats - print stats for successful and unsuccessful commands"
-    echo "      [--sort-failure] - sort by unsuccessful command"
-    echo "      [--sort-success] - sort by successful command"
+    echo "  --stats - print command execution stats (prints top ${ISM_STATS_LIMIT} results)."
+    echo "      [--sort-failure] - sort by unsuccessful executions"
+    echo "      [--sort-success] - sort by successful executions"
+    echo "      [--sort-usage] - sort by command usage"
     echo "      [--sort-date] - sort by last execution date"
     echo "      [--sort-command] - sort by command name"
+    echo ""
+    echo "Submit issues and feature requests at https://github.com/shpoont/ism/issues"
+    echo ""
+}
+
+function _ism.stats {
+    local SORT=${1:---sort-usage}
+    case "${SORT}" in
+        "--sort-usage")
+            local STATS_SORT="  | sort_by(.usage)"
+            local STATS_ORDER=" | reverse "
+            local STATS_LIMIT=" | limit(${ISM_STATS_LIMIT}; .[])"
+            ;;
+        "--sort-success")
+            local STATS_SORT="  | sort_by(.success)"
+            local STATS_ORDER=" | reverse "
+            local STATS_LIMIT=" | limit(${ISM_STATS_LIMIT}; .[])"
+            ;;
+        "--sort-failure")
+            local STATS_SORT="  | sort_by(.failure)"
+            local STATS_ORDER=" | reverse "
+            local STATS_LIMIT=" | limit(${ISM_STATS_LIMIT}; .[])"
+            ;;
+        "--sort-date")
+            local STATS_SORT="  | sort_by(.date)"
+            local STATS_ORDER=" | reverse"
+            local STATS_LIMIT=" | limit(${ISM_STATS_LIMIT}; .[])"
+            ;;
+        "--sort-command")
+            local STATS_SORT="  | sort_by(.command)"
+            local STATS_ORDER=""
+            local STATS_LIMIT=" | .[]"
+            ;;
+    esac
+
+    echo -e "Success\tFailure\tLast execution\t\tCommand"
+    jq --raw-output "map(.usage = .success + .failure ) ${STATS_SORT} ${STATS_ORDER} ${STATS_LIMIT} | \"\(if .success == null then 0 else .success end)\t\(if .failure == null then 0 else .failure end)\t\(.date)\t\(.command)\"" "${ISM_DATA_FILE}"
 }
 
 function _ism.complete {
@@ -150,7 +171,7 @@ function _ism.complete {
     if [ "${COMP_CWORD}" = "1" ]; then
         COMPREPLY=( $(compgen -W '--help --stats' -- "${CURR_ARG}") )
     elif [ "${COMP_CWORD}" = "2" -a "${PREV_ARG}" = "--stats" ]; then
-        COMPREPLY=( $(compgen -W '--sort-failure --sort-success --sort-date --sort-command' -- "${CURR_ARG}") )
+        COMPREPLY=( $(compgen -W '--sort-failure --sort-success --sort-usage --sort-date --sort-command' -- "${CURR_ARG}") )
     fi
 }
 
