@@ -1,12 +1,9 @@
 # ism
 Interactive Shell Monitor
 
-__This is a work-in-progress repo for now, wait till the first release.__
-
 ## Features
-- Collect stats about sucessful and unsuccessful commands, being executed in interactive shell.
+- Collect and display stats about sucessful and unsuccessful commands that are executed in interactive shell.
 - Display notifications when a command is failing too often (e.g. you type "sl" instead of "ls").
-- Display daily work summary on ism startup.
 
 ## Requirements
 - Only bash is supported for now
@@ -15,47 +12,53 @@ __This is a work-in-progress repo for now, wait till the first release.__
 - python
 
 ## Installation instructions
-Download https://raw.githubusercontent.com/shpoont/ism/master/ism.sh to your $HOME
 
-Add this to your $HOME/.bashrc
+### OS X
 ```sh
-source ~/ism.sh
+$ brew install jq
+$ brew install bash-preexec
+$ echo "source \$(brew --prefix)/etc/profile.d/bash-preexec.sh" >> ~/.bashrc
+
+$ curl https://raw.githubusercontent.com/shpoont/ism/master/ism.sh -o ~/.ism.sh
+$ echo "source ~/.ism.sh" >> ~/.bashrc
+```
+
+### Linux
+- Install jq and bash-preexec manually
+- Make sure you have python installed
+
+```sh
+$ curl https://raw.githubusercontent.com/shpoont/ism/master/ism.sh -o ~/.ism.sh
+$ echo "source ~/.ism.sh" >> ~/.bashrc
 ```
 
 ## Usage
-If you make too many mistakes with the same command, ism will notify you: 
 
-```
-$ sl
--bash: sl: command not found
-$ sl
--bash: sl: command not found
-$ sl
--bash: sl: command not found
------------
-ism notice: This command is failing too often
+### Displaying usage stats
+[Animation]
 
-    sl
-
-try to fix this
------------
-$
-```
+### Getting notifications about unsuccessful commands
+[Animation]
 
 ## Settings
-ISM_DATA_DIR - Directory where ism will store data. Default is "~/.ism".
 
-ISM_DATA_TTL - Amount of days to keep information about inactive commands. Default is "30".
+You can add settings to your ~/.bashrc file, before ism.sh is sourced. See example below.
 
-ISM_ALERT_FAILURES_COUNT - Amount of unsuccessful command executions, after which a notification will be triggerred. Default is "10". Setting to "0" will turn the alert off.
+*ISM_DATA_DIR* - Directory where ism will store data. Default is "~/.ism".
 
+*ISM_DATA_TTL* - Amount of days to keep information about inactive commands. Default is "30".
+
+*ISM_ALERT_FAILURES_COUNT* - Amount of unsuccessful command executions, after which a notification will be triggerred. Default is "10". Setting to "0" will turn the alert off.
+
+*ISM_STATS_LIMIT* - Limit of commands displayed when using "ism --stats". Default is "20".
 
 Example: 
 ```sh
 
+ISM_STATS_LIMIT=30
 ISM_DATA_TTL=10
 ISM_ALERT_FAILURES_COUNT=5
 
-source ~/ism.sh
+source ~/.ism.sh
 
 ```
