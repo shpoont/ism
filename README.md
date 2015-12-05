@@ -49,15 +49,12 @@ ISM_DATA_TTL - Amount of days to keep information about inactive commands. Defau
 
 ISM_ALERT_FAILURES_COUNT - Amount of unsuccessful command executions, after which a notification will be triggerred. Default is "10". Setting to "0" will turn the alert off.
 
-ISM_SHOW_DAILY_SUMMARY - If set to "yes", daily summary will be shown when ism is loaded. Default is "no".
-
 
 Example: 
 ```sh
 
 ISM_DATA_TTL=10
 ISM_ALERT_FAILURES_COUNT=5
-ISM_SHOW_DAILY_SUMMARY="yes"
 
 source ~/ism.sh
 

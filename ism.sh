@@ -2,10 +2,8 @@
 
 ISM_DATA_DIR=${ISM_DATA_DIR:-${HOME}/.ism}
 ISM_DATA_FILE="${ISM_DATA_DIR}/data.json"
-ISM_DATA_DAILY_DIR="${ISM_DATA_DIR}/daily"
 ISM_DATA_TTL=${ISM_DATA_TTL:-30}
 ISM_ALERT_FAILURES_COUNT=${ISM_ALERT_FAILURES_COUNT:-10}
-ISM_SHOW_DAILY_SUMMARY=${ISM_SHOW_DAILY_SUMMARY:-no}
 
 ISM_LAST_COMMAND=""
 ISM_LAST_COMMAND_JSON=""
@@ -28,7 +26,6 @@ function _ism.init {
   
     complete -F _ism.complete ism
     
-    _ism.daily-summary
     _ism.cleanup
 }
 
@@ -190,29 +187,6 @@ function _ism.cleanup {
     if [ -s "${TMP_FILE}" ]; then
         mv "${TMP_FILE}" "${ISM_DATA_FILE}"
     fi
-    # TODO: remove daily stats
-}
-
-function _ism.daily-summary {
-    if [ "${ISM_SHOW_DAILY_SUMMARY}" = "" -o "${ISM_SHOW_DAILY_SUMMARY}" = "no" ]; then
-        return
-    fi
-    local YESTERDAYS_DATE=$(date -v-1d +%F)
-    local YESTERDAYS_DATA_FILE="${ISM_DATA_DIR}/${YESTERDAYS_DATE}.json"
-    if [ ! -f "${YESTERDAYS_DATA_FILE}" ]; then
-        return 1
-    fi
-    local YESTERDAYS_DATA=$(jq "map(select(.date > \"${YESTERDAYS_DATE}\"))" "${YESTERDAYS_DATA_FILE}")
-    local MOST_SUCCESSFUL=$(echo "${YESTERDAYS_DATA}" | jq --raw-output "sort_by(.success) | reverse | limit(1;.[]) | \"(\(.success) calls):   \(.command)\"")
-    local MOST_UNSUCCESSFUL=$(echo "${YESTERDAYS_DATA}" | jq --raw-output "sort_by(.failure) | reverse | limit(1;.[]) | \"(\(.failure)) calls: \(.command)\"")
-    echo "-----------"
-    echo "ism notice: Yesterday's summary"
-    echo ""
-    echo "     Most successful command ${MOST_SUCCESSFUL}"
-    echo "     Most unsuccessful command ${MOST_UNSUCCESSFUL}"
-    echo ""
-    echo "Keep up the good work!"
-    echo "-----------"
 }
 
 _ism.init
