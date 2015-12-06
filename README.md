@@ -35,10 +35,10 @@ $ echo "source ~/.ism.sh" >> ~/.bashrc
 ## Usage
 
 ### Displaying usage stats
-[Animation]
+<img src="https://s3.amazonaws.com/shpoont-github-files/ism/ism-stats.gif" alt="ism stats" width="800" />
 
 ### Getting notifications about unsuccessful commands
-[Animation]
+<img src="https://s3.amazonaws.com/shpoont-github-files/ism/ism-alerts.gif" alt="ism alerts" width="800" />
 
 ## Settings
 
