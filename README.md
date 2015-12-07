@@ -13,14 +13,10 @@ Interactive Shell Monitor
 
 ## Installation instructions
 
-### OS X
+### OS X (using homebrew)
 ```sh
-$ brew install jq
-$ brew install bash-preexec
-$ echo "source \$(brew --prefix)/etc/profile.d/bash-preexec.sh" >> ~/.bashrc
-
-$ curl https://raw.githubusercontent.com/shpoont/ism/master/ism.sh -o ~/.ism.sh
-$ echo "source ~/.ism.sh" >> ~/.bashrc
+$ brew install shpoont/tap/ism
+$ echo "source \$(brew --prefix)/etc/profile.d/ism.sh" >> ~/.bashrc
 ```
 
 ### Linux
@@ -52,13 +48,12 @@ You can add settings to your ~/.bashrc file, before ism.sh is sourced. See examp
 
 *ISM_STATS_LIMIT* - Limit of commands displayed when using "ism --stats". Default is "20".
 
-Example: 
+Example of ~/.bashrc: 
 ```sh
 
 ISM_STATS_LIMIT=30
 ISM_DATA_TTL=10
 ISM_ALERT_FAILURES_COUNT=5
-
-source ~/.ism.sh
+source $(brew --prefix)/etc/profile.d/ism.sh
 
 ```
